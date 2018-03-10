@@ -4,7 +4,9 @@ app = Flask(__name__)
 # Imports
 import psutil
 from flask import jsonify
+import redis
 
+redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
 
 @app.route('/')
 def hello_world():
@@ -51,6 +53,11 @@ def get_util():
     }
     return jsonify(utilization)
 
+
+@app.route('/register')
+def register():
+    redis_cli.set('foo', 'bar')
+    return redis_cli.get('foo')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
