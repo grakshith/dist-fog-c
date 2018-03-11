@@ -1,11 +1,18 @@
 from flask import Flask
+from flask import request
 app = Flask(__name__)
 
 # Imports
 import psutil
 from flask import jsonify
 import redis
+import json
+from os import urandom
+import hashlib
+import docker
 
+
+client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
 
 @app.route('/')
@@ -54,10 +61,28 @@ def get_util():
     return jsonify(utilization)
 
 
-@app.route('/register')
+@app.route('/register', methods=['POST'])
 def register():
-    redis_cli.set('foo', 'bar')
-    return redis_cli.get('foo')
+    print request.data
+    # body = json.loads(request.data)
+    # print body
+    service_id = hashlib.md5(urandom(128)).hexdigest()[:6]
+    redis_cli.set(service_id, request.data)
+    return service_id
+
+
+@app.route('/deploy/<service_id>')
+def deploy(service_id):
+    dockerfile = redis_cli.get(service_id)
+    print type(dockerfile)
+    dockerfile = json.loads(dockerfile)['dockerfile']
+    dockerfile = open(dockerfile, 'r')
+    print "Building"
+    a,b=client.images.build(fileobj=dockerfile)
+    print a.id
+    print client.containers.run(a)
+    return "OK"
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
