@@ -15,6 +15,8 @@ import docker
 client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
 
+fognodes = []
+
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
@@ -61,8 +63,17 @@ def get_util():
     return jsonify(utilization)
 
 
-@app.route('/register', methods=['POST'])
-def register():
+@app.route('/register/fognode/', methods=['GET','POST'])
+def register_node():
+    node = request.remote_addr
+    if node not in fognodes:
+        fognodes.append(node)
+    return json.dumps(fognodes)
+
+
+
+@app.route('/register/service', methods=['POST'])
+def register_service():
     print request.data
     # body = json.loads(request.data)
     # print body
@@ -81,6 +92,11 @@ def deploy(service_id):
     a,b=client.images.build(fileobj=dockerfile)
     print a.id
     print client.containers.run(a)
+    return "OK"
+
+
+@app.route('/heartbeat')
+def heartbeat():
     return "OK"
 
 
