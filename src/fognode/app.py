@@ -10,7 +10,6 @@ import json
 from os import urandom
 import hashlib
 import docker
-import requests
 
 
 client = docker.from_env()
@@ -64,46 +63,9 @@ def get_util():
     return jsonify(utilization)
 
 
-@app.route('/register/fognode/', methods=['GET','POST'])
-def register_node():
-    node = request.remote_addr
-    if node not in fognodes:
-        fognodes.append(node)
-    return json.dumps(fognodes)
-
-
-
-@app.route('/register/service', methods=['POST'])
-def register_service():
-    print request.data
-    # body = json.loads(request.data)
-    # print body
-    service_id = hashlib.md5(urandom(128)).hexdigest()[:6]
-    redis_cli.set(service_id, request.data)
-    return service_id
-
-
-@app.route('/deploy/<service_id>')
-def deploy(service_id):
-    dockerfile = redis_cli.get(service_id)
-    print type(dockerfile)
-    dockerfile = json.loads(dockerfile)['dockerfile']
-    dockerfile = open(dockerfile, 'r')
-    print "Building"
-    a,b=client.images.build(fileobj=dockerfile)
-    print a.id
-    print client.containers.run(a)
-    return "OK"
-
-
 @app.route('/heartbeat')
 def heartbeat():
     return "OK"
-
-def get_heartbeat():
-    for node in fognodes:
-        request_uri = "http://{}:8080/heartbeat/".format(node)
-        requests.get(request_uri)
 
 
 if __name__ == '__main__':
