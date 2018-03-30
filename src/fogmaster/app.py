@@ -13,6 +13,9 @@ import docker
 import requests
 from celery import Celery
 from celery.utils.log import get_task_logger
+import time
+from datetime import timedelta
+from celery.schedules import crontab
 
 # docker config
 client = docker.from_env()
@@ -26,6 +29,13 @@ app.config['CELERY_TIMEZONE'] = 'UTC'
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
 celery.conf.update(app.config)
 logger = get_task_logger(__name__)
+# app.config['CELERYBEAT_SCHEDULE'] = {
+#     'get-heartbeat': {
+#         'task': 'get_heartbeat_task',
+#         'schedule': 5.0,
+#     },
+# }
+
 
 fognodes = []
 
@@ -80,6 +90,7 @@ def get_util():
 def register_node():
     node = request.remote_addr
     if node not in fognodes:
+        print "New node - {} joining the topology!".format(node)
         fognodes.append(node)
     return json.dumps(fognodes)
 
@@ -102,7 +113,7 @@ def deploy(service_id):
     dockerfile = json.loads(dockerfile)['dockerfile']
     dockerfile = open(dockerfile, 'r')
     print "Building"
-    a,b=client.images.build(fileobj=dockerfile)
+    a, b = client.images.build(fileobj=dockerfile)
     print a.id
     print client.containers.run(a)
     return "OK"
@@ -112,15 +123,20 @@ def deploy(service_id):
 def heartbeat():
     return "OK"
 
+
+@celery.task(name="get_heartbeat_task")
 def get_heartbeat():
     for node in fognodes:
         request_uri = "http://{}:8080/heartbeat/".format(node)
-        requests.get(request_uri)
+        response = requests.get(request_uri)
+        if(response != "OK"):
+            print "{} did not send heartbeat".format(node)
+        time.sleep(2)
 
-@celery.task(name="test")
-def celery_task():
-    print "ASASD"
+@celery.on_after_configure.connect
+def tasks_start(sender, **kwargs):
+    """Contains all the celery start points"""
+    sender.add_periodic_task(5.0, get_heartbeat.s())
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
-    celery_task.delay()
