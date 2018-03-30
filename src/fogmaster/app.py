@@ -11,12 +11,24 @@ from os import urandom
 import hashlib
 import docker
 import requests
+from celery import Celery
+from celery.utils.log import get_task_logger
 
-
+# docker config
 client = docker.from_env()
+
+# redis config
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
 
+# Celery config
+app.config['CELERY_BROKER_URL'] = 'redis://localhost:6380/0'
+app.config['CELERY_TIMEZONE'] = 'UTC'
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
+logger = get_task_logger(__name__)
+
 fognodes = []
+
 
 @app.route('/')
 def hello_world():
@@ -105,6 +117,10 @@ def get_heartbeat():
         request_uri = "http://{}:8080/heartbeat/".format(node)
         requests.get(request_uri)
 
+@celery.task(name="test")
+def celery_task():
+    print "ASASD"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
+    celery_task.delay()
