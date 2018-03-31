@@ -10,6 +10,7 @@ import json
 from os import urandom
 import hashlib
 import docker
+import requests
 
 
 client = docker.from_env()
@@ -63,10 +64,14 @@ def get_util():
     return jsonify(utilization)
 
 
-@app.route('/heartbeat')
+@app.route('/heartbeat/')
 def heartbeat():
     return "OK"
 
+def register_fog_master():
+    requests.get("http://192.168.1.100:8080/register/fognode/")
+
 
 if __name__ == '__main__':
+    register_fog_master()
     app.run(debug=True, host='0.0.0.0', port=8080)

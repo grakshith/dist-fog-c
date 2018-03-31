@@ -89,9 +89,11 @@ def get_util():
 @app.route('/register/fognode/', methods=['GET','POST'])
 def register_node():
     node = request.remote_addr
+    fognodes = json.loads(redis_cli.get('fognodes'))
     if node not in fognodes:
         print "New node - {} joining the topology!".format(node)
         fognodes.append(node)
+        redis_cli.set('fognodes',json.dumps(fognodes))
     return json.dumps(fognodes)
 
 
@@ -126,12 +128,19 @@ def heartbeat():
 
 @celery.task(name="get_heartbeat_task")
 def get_heartbeat():
+    fognodes = json.loads(redis_cli.get('fognodes'))
+    print "In heartbeat - {}".format([x for x in fognodes])
     for node in fognodes:
         request_uri = "http://{}:8080/heartbeat/".format(node)
-        response = requests.get(request_uri)
-        if(response != "OK"):
+        try:
+            response = requests.get(request_uri)
+        except:
             print "{} did not send heartbeat".format(node)
-        time.sleep(2)
+            fognodes.remove(node)
+            redis_cli.set('fognodes', json.dumps(fognodes))
+        else:
+            print "{} - {}".format(node, response.text)
+
 
 @celery.on_after_configure.connect
 def tasks_start(sender, **kwargs):
@@ -139,4 +148,5 @@ def tasks_start(sender, **kwargs):
     sender.add_periodic_task(5.0, get_heartbeat.s())
 
 if __name__ == '__main__':
+    redis_cli.set('fognodes', json.dumps([]))
     app.run(debug=True, host='0.0.0.0', port=8080)
