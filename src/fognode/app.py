@@ -9,18 +9,18 @@ import redis
 import json
 from os import urandom
 import hashlib
-import docker
+#import docker
+import requests
 
 
-client = docker.from_env()
+#client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
 
 fognodes = []
 
 @app.route('/')
 def hello_world():
-    return 'Hello, World!'
-
+	return 'Hello, World!'
 
 @app.route('/utilization')
 def get_util():
@@ -62,11 +62,35 @@ def get_util():
     }
     return jsonify(utilization)
 
+'''
+@app.route('/deploy/<service_id>')
+def deploy(service_id):
+    dockerfile = redis_cli.get(service_id)
+    print type(dockerfile)
+    dockerfile = json.loads(dockerfile)['dockerfile']
+    dockerfile = open(dockerfile, 'r')
+    print "Building"
+    a,b=client.images.build(fileobj=dockerfile)
+    print a.id
+    print client.containers.run(a)
+    return "OK"
+'''
+
+@app.route('/servicedata', methods=['POST'])
+def propagate_data():
+	print request.form
+	redis_cli.set(request.form['service_id'],request.form['service_data'])
+	parent_node = getParentNode()
+	request_uri = "http://{}:8080/servicedata/".format(parent_node)
+	requests.post(request_uri,data = request.form)
+	return "OK"
+
+def getParentNode():
+	#get parent from shared redis
 
 @app.route('/heartbeat')
 def heartbeat():
     return "OK"
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
