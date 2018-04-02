@@ -15,6 +15,7 @@ import requests
 
 #client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
+redis_shared = redis.StrictRedis(host='192.168.1.100', port=6381, db=0)
 
 fognodes = []
 
@@ -87,6 +88,14 @@ def propagate_data():
 
 def getParentNode():
 	#get parent from shared redis
+	parent = redis_shared.get(str(request.host.split((':')[0])))
+	return parent
+
+def getChildren():
+	#get parent from shared redis
+	children = redis_cli.get('fognodes')
+	return children
+
 
 @app.route('/heartbeat')
 def heartbeat():
