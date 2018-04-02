@@ -15,6 +15,7 @@ import requests
 
 client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
+redis_shared = redis.StrictRedis(host='192.168.1.100', port=6381, db=0)
 
 fognodes = []
 
@@ -63,6 +64,25 @@ def get_util():
     }
     return jsonify(utilization)
 
+
+@app.route('/servicedata', methods=['POST'])
+def propagate_data():
+    print request.form
+    redis_cli.set(request.form['service_id'],request.form['service_data'])
+    parent_node = getParentNode()
+    request_uri = "http://{}:8080/servicedata/".format(parent_node)
+    requests.post(request_uri,data = request.form)
+    return "OK"
+
+def getParentNode():
+    #get parent from shared redis
+    parent = redis_shared.get(str(request.host.split((':')[0])))
+    return parent
+
+def getChildren():
+    #get parent from shared redis
+    children = redis_cli.get('fognodes')
+    return children
 
 @app.route('/heartbeat/')
 def heartbeat():

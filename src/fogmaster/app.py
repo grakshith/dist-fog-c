@@ -22,6 +22,7 @@ client = docker.from_env()
 
 # redis config
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
+redis_shared = redis.StrictRedis(host='192.168.1.100', port=6381, db=0)
 
 # Celery config
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6380/0'
@@ -94,6 +95,7 @@ def register_node():
         print "New node - {} joining the topology!".format(node)
         fognodes.append(node)
         redis_cli.set('fognodes',json.dumps(fognodes))
+        redis_shared.set(str(node),str(request.host.split(':')[0]))
     return json.dumps(fognodes)
 
 
@@ -106,6 +108,28 @@ def register_service():
     service_id = hashlib.md5(urandom(128)).hexdigest()[:6]
     redis_cli.set(service_id, request.data)
     return service_id
+
+
+@app.route('/servicedata', methods=['POST'])
+def propagate_data():
+    print request.form
+    redis_cli.set(request.form['service_id'],request.form['service_data'])
+    parent_node = getParentNode()
+    if parent_node is not None:
+        request_uri = "http://{}:8080/servicedata/".format(parent_node)
+        requests.post(request_uri,data = request.form)
+    return "OK"
+
+
+def getParentNode():
+    #get parent from shared redis
+    parent = redis_shared.get(str(request.host.split(':')[0]))
+    return parent
+
+
+def getChildren():
+    children = redis_cli.get('fognodes')
+    return children
 
 
 @app.route('/deploy/<service_id>')
