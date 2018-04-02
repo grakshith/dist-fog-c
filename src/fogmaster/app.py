@@ -22,6 +22,7 @@ client = docker.from_env()
 
 # redis config
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
+redis_shared = redis.StrictRedis(host='192.168.1.100', port=6381, db=0)
 
 # Celery config
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6380/0'
@@ -72,7 +73,7 @@ def get_util():
         'available': psutil.virtual_memory().available,
         'percent': psutil.virtual_memory().percent,
         'used': psutil.virtual_memory().used,
-        'free': psutil.virtual_memory().free
+        'free': psutil.virtual_memory().freecli
     }
     utilization = {
         'cpu_count': cpu_count,
@@ -94,6 +95,7 @@ def register_node():
         print "New node - {} joining the topology!".format(node)
         fognodes.append(node)
         redis_cli.set('fognodes',json.dumps(fognodes))
+    redis_shared_1.set(str(node),str(request.host.split(':')[0]))
     return json.dumps(fognodes)
 
 
@@ -119,6 +121,12 @@ def propagate_data():
 
 def getParentNode():
 	#get parent from shared redis
+    parent = redis_shared.get(str(request.host.split(':')[0]))
+    return parent
+
+def getChildren():
+    children = redis_cli.get('fognodes')
+    return children
 
 
 @app.route('/deploy/<service_id>')
