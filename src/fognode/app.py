@@ -92,5 +92,8 @@ def getParentNode():
 def heartbeat():
     return "OK"
 
+def register_fog_master():
+	requests.get("http://192.168.1.100:8080/register/fognode/")
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
