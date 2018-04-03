@@ -167,10 +167,25 @@ def get_heartbeat():
             print "{} - {}".format(node, response.text)
 
 
+@celery.task(name="monitor_resource_utilization")
+def monitor_resource_util():
+    fognodes = json.loads(redis_cli.get('fognodes'))
+    for node in fognodes:
+        request_uri = "http://{}:8080/utilization".format(node)
+        try:
+            response = requests.get(request_uri)
+        except:
+            print "{} did not send heartbeat".format(node)
+        else:
+            util = json.loads(response.text)
+            print util['cpu_percent']
+
+
 @celery.on_after_configure.connect
 def tasks_start(sender, **kwargs):
     """Contains all the celery start points"""
-    sender.add_periodic_task(5.0, get_heartbeat.s())
+    sender.add_periodic_task(2.5, get_heartbeat.s())
+    sender.add_periodic_task(5.0, monitor_resource_util.s())
 
 if __name__ == '__main__':
     fognodes = redis_cli.get('fognodes')
