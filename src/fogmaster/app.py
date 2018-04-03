@@ -112,12 +112,13 @@ def register_service():
 
 @app.route('/servicedata', methods=['POST'])
 def propagate_data():
-    print request.form
-    redis_cli.set(request.form['service_id'],request.form['service_data'])
+    print request.data
+    form = json.loads(request.data)
+    redis_cli.set(str(form['service_id']+"-service_data"),form['service_data'])
     parent_node = getParentNode()
     if parent_node is not None:
         request_uri = "http://{}:8080/servicedata/".format(parent_node)
-        requests.post(request_uri,data = request.form)
+        requests.post(request_uri, data=request.data)
     return "OK"
 
 
@@ -172,5 +173,7 @@ def tasks_start(sender, **kwargs):
     sender.add_periodic_task(5.0, get_heartbeat.s())
 
 if __name__ == '__main__':
-    redis_cli.set('fognodes', json.dumps([]))
+    fognodes = redis_cli.get('fognodes')
+    if fognodes is None:
+        redis_cli.set('fognodes', json.dumps([]))
     app.run(debug=True, host='0.0.0.0', port=8080)

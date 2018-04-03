@@ -67,16 +67,19 @@ def get_util():
 
 @app.route('/servicedata', methods=['POST'])
 def propagate_data():
-    print request.form
-    redis_cli.set(request.form['service_id'],request.form['service_data'])
-    parent_node = getParentNode()
+    print request.data
+    form = json.loads(request.data)
+    redis_cli.set(str(form['service_id']+"-service_data"), form['service_data'])
+    parent_node = getParentNode(request)
     request_uri = "http://{}:8080/servicedata/".format(parent_node)
-    requests.post(request_uri,data = request.form)
+    # print request_uri
+    requests.post(request_uri, data=request.data)
     return "OK"
 
-def getParentNode():
+def getParentNode(request):
     #get parent from shared redis
-    parent = redis_shared.get(str(request.host.split((':')[0])))
+    parent = redis_shared.get(str(request.host.split(':')[0]))
+    print parent
     return parent
 
 def getChildren():
