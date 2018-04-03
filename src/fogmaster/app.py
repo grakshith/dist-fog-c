@@ -7,6 +7,7 @@ import psutil
 from flask import jsonify
 import redis
 import json
+import os
 from os import urandom
 import hashlib
 import docker
@@ -16,6 +17,7 @@ from celery.utils.log import get_task_logger
 import time
 from datetime import timedelta
 from celery.schedules import crontab
+from cStringIO import StringIO
 
 # docker config
 client = docker.from_env()
@@ -106,7 +108,14 @@ def register_service():
     # body = json.loads(request.data)
     # print body
     service_id = hashlib.md5(urandom(128)).hexdigest()[:6]
-    redis_cli.set(service_id, request.data)
+    try:
+        path='service-data/{}'.format(service_id)
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise
+    # TODO: Store the dockerfile here
+    redis_cli.set(service_id, request.data) 
     return service_id
 
 
@@ -137,13 +146,20 @@ def getChildren():
 def deploy(service_id):
     dockerfile = redis_cli.get(service_id)
     print type(dockerfile)
-    dockerfile = json.loads(dockerfile)['dockerfile']
-    dockerfile = open(dockerfile, 'r')
-    print "Building"
-    a, b = client.images.build(fileobj=dockerfile)
-    print a.id
-    print client.containers.run(a)
+    build_and_deploy.delay(service_id)
     return "OK"
+
+
+@celery.task(name="build_and_deploy")
+def build_and_deploy(service_id):
+    with open('service-data/{}/dockerfile'.format(service_id), 'r') as f:
+        print "Building"
+        a = client.images.build(fileobj=f)
+        print a.id
+        service_data = json.loads(redis_cli.get(service_id))
+        service_data['docker_image_id'] = a.id
+        redis_cli.set(service_id, json.dumps(service_data))
+        print client.containers.run(a)
 
 
 @app.route('/heartbeat')
