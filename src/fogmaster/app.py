@@ -203,6 +203,60 @@ def tasks_start(sender, **kwargs):
     sender.add_periodic_task(2.5, get_heartbeat.s())
     sender.add_periodic_task(5.0, monitor_resource_util.s())
 
+
+def get_util_node(node):
+    request_uri = "http://{}:8080/utilization".format(node)
+    try:
+        response = requests.get(request_uri)
+    except:
+        print "{} did not send utilization".format(node)
+    else:
+        util = json.loads(response.text)
+    small_util = {}
+    small_util['cpu_percent'] = util['cpu_percent']
+    small_util['disk_util'] = util['disk_util']['percent']
+    small_util['memory'] = util['memory']['percent']
+    return small_util
+
+
+@app.route('/provision/<service_id>')
+def provision_resources(service_id):
+    # fognodes = json.loads(redis_cli.get('fognodes'))
+    requirements = {
+        "cpu": 20,
+        "memory": 50
+    }
+    utils = {
+        "192.168.1.102": {
+            "cpu_percent": 1.7,
+            "disk_util": 500,
+            "memory": 45,
+            "memory_percentage":14,
+            "containers": 2
+        },
+        "192.168.1.103": {
+            "cpu_percent": 22.7,
+            "disk_util": 500,
+            "memory": 600,
+            "memory_percentage":60,
+            "containers": 3
+        }
+    }
+    sorted_utils = sorted(utils.iteritems(),key=lambda (k,v): ((0.40*v['memory_percentage']/100+0.45*v['containers']/5+0.1*v['cpu_percent']/100),k))
+    for node in sorted_utils:
+        available_resources = node[1]
+        if available_resources['memory'] >= requirements['memory'] and \
+                available_resources['cpu_percent'] >= 100-requirements['cpu'] and \
+                available_resources['containers']<5:
+                return node[0]
+
+    # for node in fognodes:
+    #     utils[node] = get_util_node(node)
+
+
+    return jsonify(utils)
+
+
 if __name__ == '__main__':
     fognodes = redis_cli.get('fognodes')
     if fognodes is None:
