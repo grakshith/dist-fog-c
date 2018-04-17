@@ -275,6 +275,20 @@ utils = {
             "memory": 600,
             "memory_percentage":60,
             "containers": 3
+        },
+        "192.168.1.104": {
+            "cpu_percent": 30,
+            "disk_util": 500,
+            "memory": 400,
+            "memory_percentage":40,
+            "containers": 1
+        },
+        "192.168.1.105": {
+            "cpu_percent": 50,
+            "disk_util": 500,
+            "memory": 600,
+            "memory_percentage":60,
+            "containers": 0
         }
     }
 def build_topology():
@@ -296,14 +310,18 @@ def build_topology():
 # requests - structure
 req1 = Request(service_id='12345', requirements={'cpu':20, 'memory':50})
 req2 = Request(service_id='12346', requirements={'cpu':40, 'memory':120})
+req3 = Request(service_id='12347', requirements={'cpu':45, 'memory':100})
+req4 = Request(service_id='12348', requirements={'cpu':50, 'memory':50})
 heap = []
-requests = [req1, req2]
+requests = [req1, req2, req3, req4]
+assigned_indices = []
+allocated_nodes = []
 
 def branch_and_bound_rp(requests):
     # build_topology()
     cost_matrix = {}
     # fognodes = json.loads(redis_cli.get('fognodes'))
-    fognodes = ['192.168.1.102', '192.168.1.103']
+    fognodes = ['192.168.1.102', '192.168.1.103', '192.168.1.104', '192.168.1.105']
     for node in fognodes:
         # TODO: get_utils
         cost_matrix[node]=[]
@@ -315,6 +333,20 @@ def branch_and_bound_rp(requests):
 
 
     print cost_matrix
+
+
+def cal_min_promising_cost(cost_matrix, node, req_index, cost_incurred):
+    selected = cost_matrix[node]
+    cost = cost_incurred
+    for nod in cost_matrix:
+        costs = 
+        if nod == node:
+            continue
+        if nod in allocated_nodes:
+            continue
+    
+
+
 
 branch_and_bound_rp(requests)
 exit(0)
