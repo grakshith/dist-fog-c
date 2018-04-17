@@ -21,6 +21,7 @@ from cStringIO import StringIO
 from structures import *
 from Queue import Queue
 import heapq
+import sys
 # docker config
 client = docker.from_env()
 
@@ -314,8 +315,6 @@ req3 = Request(service_id='12347', requirements={'cpu':45, 'memory':100})
 req4 = Request(service_id='12348', requirements={'cpu':50, 'memory':50})
 heap = []
 requests = [req1, req2, req3, req4]
-assigned_indices = []
-allocated_nodes = []
 
 def branch_and_bound_rp(requests):
     # build_topology()
@@ -330,22 +329,55 @@ def branch_and_bound_rp(requests):
             reqs = request.requirements
             cost_matrix[node].append(2/5*(node_utils['containers'])+0.04*(node_utils['cpu_percent']+reqs['cpu']) + 0.01*(node_utils['memory_percentage']+reqs['memory']))
 
-
+        assigned_indices = []
+        allocated_nodes = []
+        cost_incurred = 0
+        heap = []
+        for nod in fognodes:
+            print nod
+            for i in range(len(cost_matrix[nod])):
+                #print "Assigned ind = ",assigned_indices
+                if i not in assigned_indices:
+                    print i
+                    cost_level = cost_matrix[nod][i] + cal_min_promising_cost(cost_matrix, nod, i, cost_incurred, assigned_indices, allocated_nodes)
+                    heapq.heappush(heap,(cost_level,i+1))
+                    #print heap
+            #print "Before pop = ",heap
+            assignment = heapq.heappop(heap)
+            assigned_indices.append(assignment[1])
+            allocated_nodes.append((nod,assignment[1]))
+            cost_incurred += assignment[0]
+            heap = []
+            #print assignment,assigned_indices,allocated_nodes,cost_incurred
 
     print cost_matrix
 
 
-def cal_min_promising_cost(cost_matrix, node, req_index, cost_incurred):
+def cal_min_promising_cost(cost_matrix, node, req_index, cost_incurred, assigned_indices, allocated_nodes):
     selected = cost_matrix[node]
     cost = cost_incurred
+    local_assigned_indices = list(assigned_indices)
+    local_assigned_indices.append(req_index)
     for nod in cost_matrix:
-        costs = 
         if nod == node:
             continue
         if nod in allocated_nodes:
             continue
-    
-
+        min_val = sys.maxint
+        min_index = -1
+        for i in range(len(cost_matrix[nod])):
+            #print cost_matrix[nod]
+            if i not in local_assigned_indices and cost_matrix[nod][i] < min_val:
+                #print i
+                min_index = i
+                min_val = cost_matrix[nod][i]
+                #print "Min val = ",min_val,"min index = ",min_index
+        local_assigned_indices.append(min_index)
+        #print min_val
+        cost += min_val
+        print "min_val = ",min_val
+        #print local_assigned_indices
+    return cost
 
 
 branch_and_bound_rp(requests)
