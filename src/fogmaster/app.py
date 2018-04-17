@@ -18,7 +18,9 @@ import time
 from datetime import timedelta
 from celery.schedules import crontab
 from cStringIO import StringIO
-
+from structures import *
+from Queue import Queue
+import heapq
 # docker config
 client = docker.from_env()
 
@@ -115,7 +117,7 @@ def register_service():
         if not os.path.isdir(path):
             raise
     # TODO: Store the dockerfile here
-    redis_cli.set(service_id, request.data) 
+    redis_cli.set(service_id, request.data)
     return service_id
 
 
@@ -255,6 +257,67 @@ def provision_resources(service_id):
 
 
     return jsonify(utils)
+
+root = Node(IP="192.168.1.100")
+root.children=['192.168.1.102', '192.168.1.103']
+nodes = 1
+utils = {
+        "192.168.1.102": {
+            "cpu_percent": 1.7,
+            "disk_util": 500,
+            "memory": 45,
+            "memory_percentage":14,
+            "containers": 2
+        },
+        "192.168.1.103": {
+            "cpu_percent": 22.7,
+            "disk_util": 500,
+            "memory": 600,
+            "memory_percentage":60,
+            "containers": 3
+        }
+    }
+def build_topology():
+    queue = Queue()
+    queue.put(root)
+    while(not queue.empty()):
+        u = queue.get()
+        uri = "http://{}:8080/get_children".format(u.IP)
+        # get_util_node
+
+        response = requests.get(uri)
+        children = json.loads(response.text)
+        u.children = children
+        for child in children:
+            child_node = Node(IP=child)
+            queue.put(child_node)
+            nodes += 1
+
+# requests - structure
+req1 = Request(service_id='12345', requirements={'cpu':20, 'memory':50})
+req2 = Request(service_id='12346', requirements={'cpu':40, 'memory':120})
+heap = []
+requests = [req1, req2]
+
+def branch_and_bound_rp(requests):
+    # build_topology()
+    cost_matrix = {}
+    # fognodes = json.loads(redis_cli.get('fognodes'))
+    fognodes = ['192.168.1.102', '192.168.1.103']
+    for node in fognodes:
+        # TODO: get_utils
+        cost_matrix[node]=[]
+        for request in requests:
+            node_utils = utils[node]
+            reqs = request.requirements
+            cost_matrix[node].append(2/5*(node_utils['containers'])+0.04*(node_utils['cpu_percent']+reqs['cpu']) + 0.01*(node_utils['memory_percentage']+reqs['memory']))
+
+
+
+    print cost_matrix
+
+branch_and_bound_rp(requests)
+exit(0)
 
 
 if __name__ == '__main__':
