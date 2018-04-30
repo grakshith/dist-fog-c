@@ -1,0 +1,6 @@
+FROM python:2.7.14-slim-jessie 
+MAINTAINER Rakshith "hehaichi@gmail.com"
+WORKDIR /app
+EXPOSE 8080
+ENTRYPOINT ["echo"]
+CMD ["Hello world! This came from the docker container that you just deployed."]
