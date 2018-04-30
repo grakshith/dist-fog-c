@@ -143,7 +143,7 @@ def register_service():
     return service_id
 
 
-@app.route('/servicedata', methods=['POST'])
+@app.route('/servicedata/', methods=['POST'])
 def propagate_data():
     print request.data
     form = json.loads(request.data)
@@ -153,6 +153,12 @@ def propagate_data():
         request_uri = "http://{}:8080/servicedata/".format(parent_node)
         requests.post(request_uri, data=request.data)
     return "OK"
+
+
+@app.route('/get_service_data/<service_id>')
+def get_latest_service_data(service_id):
+    service_data = redis_cli.get(service_id+"-service_data")
+    return jsonify(service_data)
 
 
 def getParentNode():
@@ -267,6 +273,7 @@ def get_util_node(node):
 @app.route('/provision/<service_id>')
 def provision_resources(service_id):
     fognodes = json.loads(redis_cli.get('fognodes'))
+    print fognodes
     with open('service-data/{}/requirements'.format(service_id)) as req:
         requirements = req.read()
     requirements = json.loads(requirements)
@@ -274,7 +281,8 @@ def provision_resources(service_id):
     utils = {}
     for node in fognodes:
         utils[node] = get_util_node(node)
-    sorted_utils = sorted(utils.iteritems(),key=lambda (k,v): ((0.40*v['memory']/100+0.45*v['containers']/5+0.1*v['cpu_percent']/100),k))
+    sorted_utils = sorted(utils.iteritems(),key=lambda (k,v): ((-0.40*v['memory']/100+0.45*v['containers']/5+0.1*v['cpu_percent']/100),k))
+    print sorted_utils
     for node in sorted_utils:
         available_resources = node[1]
         print available_resources

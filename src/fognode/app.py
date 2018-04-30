@@ -17,6 +17,7 @@ from celery import Celery
 from celery.utils.log import get_task_logger
 import os
 import StringIO
+import time
 
 client = docker.from_env()
 redis_cli = redis.StrictRedis(host='localhost', port=6380, db=0)
@@ -100,7 +101,7 @@ def propagate_data():
 
 def getParentNode(request):
     #get parent from shared redis
-    parent = redis_shared.get(str(request.host.split(':')[0]))
+    parent = redis_shared.get('192.168.1.102')
     print parent
     return parent
 
@@ -140,15 +141,20 @@ def get_service_data(service_id):
 def build_and_deploy(service_id):
     service_data = redis_cli.get(service_id)
     if not service_data:
-        with open('service-data/{}/dockerfile'.format(service_id), 'r') as f:
-            print "Building"
+        command = "docker build -t rakshith/{} service-data/{}/".format(service_id, service_id)
+        print "Building"
+        os.system(command)
             # a = client.images.build(fileobj=f)
-            for line in raw_cli.build(fileobj=f, tag='rakshith/{}'.format(service_id), custom_context=True):
-                print line
-            # service_data = {}
-            service_data = 'rakshith/{}'.format(service_id)
-            redis_cli.set(service_id, service_data)
-            print client.containers.run(service_data)
+            # for line in raw_cli.build(fileobj=f, tag='rakshith/{}'.format(service_id), custom_context=True):
+            #     print line
+            # # service_data = {}
+        service_data = 'rakshith/{}'.format(service_id)
+        redis_cli.set(service_id, service_data)
+    print "Time start"
+    start = time.time()
+    print client.containers.run(service_data)
+    end = time.time()
+    print "Time End - Total Time = {}".format(end-start)
 
 
 
